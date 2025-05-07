@@ -3,7 +3,7 @@ import { useState } from "react";
 import ProductQuantity from "components/commons/ProductQuantity";
 import { Delete } from "neetoicons";
 import { Alert, Typography } from "neetoui";
-import { prop } from "ramda";
+import { useTranslation, Trans } from "react-i18next";
 import useCartItemsStore from "stores/useCartItemsStore";
 
 const ProductCard = ({
@@ -16,7 +16,9 @@ const ProductCard = ({
 }) => {
   const [shouldShowDeleteAlert, setShouldShowDeleteAlert] = useState(false);
 
-  const removeCartItem = useCartItemsStore(prop("removeCartItem"));
+  const { t } = useTranslation();
+
+  const removeCartItem = useCartItemsStore.pickFrom();
 
   return (
     <div className="neeto-ui-rounded neeto-ui-border-black border p-2">
@@ -26,8 +28,10 @@ const ProductCard = ({
           <Typography className="mb-2" style="h4" weight="bold">
             {name}
           </Typography>
-          <Typography style="body2">MRP: ${mrp}</Typography>
-          <Typography style="body2">Offer price: ${offerPrice}</Typography>
+          <Typography style="body2">{t("mrp", { mrp })}</Typography>
+          <Typography style="body2">
+            {t("offerPrice", { offerPrice })}
+          </Typography>
         </div>
         <div className="flex items-center space-x-2">
           <ProductQuantity {...{ availableQuantity, slug }} />
@@ -37,13 +41,13 @@ const ProductCard = ({
           />
           <Alert
             isOpen={shouldShowDeleteAlert}
-            submitButtonLabel="Yes, remove"
-            title="Remove item?"
+            submitButtonLabel={t("removeItemConfirmation.button")}
+            title={t("removeItemConfirmation.title")}
             message={
-              <Typography>
-                You are removing <strong>{name}</strong> from cart. Do you want
-                to continue?
-              </Typography>
+              <Trans
+                i18nKey="removeItemConfirmation.message"
+                values={{ name }}
+              />
             }
             onClose={() => setShouldShowDeleteAlert(false)}
             onSubmit={() => {
