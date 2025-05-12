@@ -1,43 +1,61 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
-import productsApi from "apis/products";
 import { Header, PageLoader } from "components/commons";
-import useDebounce from "hooks/useDebounce";
+import { useFetchProducts } from "hooks/reactQuery/useProductsApi";
+import useFuncDebounce from "hooks/useFuncDebounce";
+import useQueryParams from "hooks/useQueryParams";
+import { filterNonNull } from "neetocist";
 import { Search } from "neetoicons";
-import { Input, NoData } from "neetoui";
-import { isEmpty } from "ramda";
+import { Pagination, Input, NoData } from "neetoui";
+import { isEmpty, mergeLeft } from "ramda";
 import { useTranslation } from "react-i18next";
+import { useHistory } from "react-router-dom";
+import routes from "routes";
+import { buildUrl } from "utils/url";
 import withTitle from "utils/withTitle";
 
+import { DEFAULT_PAGE_INDEX, DEFAULT_PAGE_SIZE } from "./constants";
 import ProductListItem from "./ProductListItem";
 
 const ProductList = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [products, setProducts] = useState([]);
-  const [searchKey, setSearchKey] = useState("");
+  const queryParams = useQueryParams();
+  const { page, pageSize, searchTerm = "" } = queryParams;
+
+  const [searchKey, setSearchKey] = useState(searchTerm);
 
   const { t } = useTranslation();
 
-  const debouncedSearchKey = useDebounce(searchKey);
+  const history = useHistory();
 
-  const fetchProducts = async () => {
-    try {
-      const data = await productsApi.fetch({ searchTerm: debouncedSearchKey });
-      setProducts(data.products);
-    } catch (error) {
-      console.log(t("error.genericError", { error }));
-    } finally {
-      setIsLoading(false);
-    }
+  const productsParams = {
+    searchTerm,
+    page: Number(page) || DEFAULT_PAGE_INDEX,
+    pageSize: Number(pageSize) || DEFAULT_PAGE_SIZE,
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, [debouncedSearchKey]);
+  const { data: { products = [], totalProductsCount } = {}, isLoading } =
+    useFetchProducts(productsParams);
 
-  if (isLoading) {
-    return <PageLoader />;
-  }
+  const handlePageNavigation = page => {
+    history.replace(
+      buildUrl(
+        routes.products.index,
+        mergeLeft({ page, pageSize: DEFAULT_PAGE_SIZE }, queryParams)
+      )
+    );
+  };
+
+  const updateQueryParams = useFuncDebounce(value => {
+    const params = {
+      page: DEFAULT_PAGE_INDEX,
+      pageSize: DEFAULT_PAGE_SIZE,
+      searchTerm: value || null,
+    };
+
+    history.replace(buildUrl(routes.products.index, filterNonNull(params)));
+  });
+
+  if (isLoading) return <PageLoader />;
 
   return (
     <div className="flex h-screen flex-col">
@@ -50,7 +68,10 @@ const ProductList = () => {
             prefix={<Search />}
             type="search"
             value={searchKey}
-            onChange={event => setSearchKey(event.target.value)}
+            onChange={({ target: { value } }) => {
+              updateQueryParams(value);
+              setSearchKey(value);
+            }}
           />
         }
       />
@@ -63,6 +84,14 @@ const ProductList = () => {
           ))}
         </div>
       )}
+      <div className="mb-5 self-end">
+        <Pagination
+          count={totalProductsCount}
+          navigate={handlePageNavigation}
+          pageNo={Number(page) || DEFAULT_PAGE_INDEX}
+          pageSize={Number(pageSize) || DEFAULT_PAGE_SIZE}
+        />
+      </div>
     </div>
   );
 };
